@@ -32,9 +32,7 @@ export const getUserByAddress = async (req: Request, res: Response, next: NextFu
         const address = req.params.address;
         const userFind = await userModel.findOne({ address });
         if (!userFind) {
-            error.message = "user not exist!";
-            (error as any).statusCode = 400;
-            return next(error);
+            return res.status(200).json({ user: null, isAuth: false });
         }
         return res.status(200).json({ user: userFind, isAuth: true });
     } catch (error) {
