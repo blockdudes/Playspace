@@ -18,24 +18,22 @@ export default function Page() {
         }
     }, [wallet])
 
-
-
     const registerGame = useCallback(async () => {
         try {
-
-            const gameData = {
-                gameId: uuidv4(),
-                gameName: "cryptic",
-                gameType: "GAMBLING",
-                gameCreator: user.user?._id,
-                gameData: "game_data_1",
-                gameImages: ["0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6", "0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6", "0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6", "0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6"]
+            if (!wallet.error && wallet.signer) {
+                const gameData = {
+                    gameId: uuidv4(),
+                    gameName: "cryptic",
+                    gameType: "GAMBLING",
+                    gameCreator: user.user?._id,
+                    gameData: "game_data_1",
+                    gameImages: ["0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6", "0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6", "0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6", "0xd9eb5cfed425152a47a35dcfc43d0acbfb865feba0fc54f20fc6f40903c467d6"]
+                }
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/game/register`, gameData);
+                console.log(response.data);
+            } else {
+                console.log("connect your wallet!");
             }
-
-            console.log(gameData);
-
-            const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/game/register`, gameData);
-            console.log(response.data);
         } catch (error) {
             console.log(error);
         }
