@@ -3,10 +3,15 @@ import { Document, Types } from "mongoose";
 export interface Game extends Document {
     gameId: string;
     gameName: string;
+    gameImages: string[];
+    gamePlayerCount: number;
+    gameTokenSymbol: string;
+    gameCategory: string;
     gameType: "GAMBLING" | "EARNING" | "PRACTICE";
+    gameDescription: string;
+    gameRating: string;
     gameCreator: Types.ObjectId;
     gameData: string;
-    gameImages: string[];
 }
 
 export interface GameHistory extends Document {

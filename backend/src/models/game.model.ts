@@ -11,7 +11,12 @@ const GameSchema: Schema<Game> = new Schema({
     },
     gameCreator: { type: Schema.Types.ObjectId, required: true, ref: 'aurora_user' },
     gameData: { type: String, required: true, unique: true },
-    gameImages: { type: [String], required: true }
+    gameImages: { type: [String], required: true },
+    gamePlayerCount: { type: Number, default: 20 },
+    gameTokenSymbol: { type: String, default: "EUCLID GAME TOKEN" },
+    gameCategory: { type: String, required: true },
+    gameDescription: { type: String, required: true },
+    gameRating: { type: String, default: "3.9" },
 }, {
     timestamps: true
 });
