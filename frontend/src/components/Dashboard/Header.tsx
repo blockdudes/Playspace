@@ -1,13 +1,19 @@
+"use client"
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Globe, DollarSign, Target, User } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { connectWallet } from "@/lib/reducers/integrate_wallet_slice";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 
-const Header: React.FC<{ registered: boolean, walletConnected: boolean }> = ({ registered, walletConnected }) => {
+const Header: React.FC<{ registered: boolean }> = ({ registered }) => {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const wallet = useAppSelector(state => state.wallet);
 
+  console.log('registered',registered)
   return (
     <header className="flex justify-between items-center mb-6">
       <Tabs defaultValue="casino" className="w-[400px]">
@@ -39,8 +45,8 @@ const Header: React.FC<{ registered: boolean, walletConnected: boolean }> = ({ r
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {!registered && <DropdownMenuItem onClick={() => router.push("/Register")}>Register</DropdownMenuItem>}
-            {!walletConnected && <DropdownMenuItem onClick={() => { }}>Connect Wallet</DropdownMenuItem>}
-            {walletConnected && <DropdownMenuItem onClick={() => { }}>Disconnect Wallet</DropdownMenuItem>}
+            {!wallet.clientSigner && <DropdownMenuItem onClick={() => dispatch(connectWallet())}>Connect Wallet</DropdownMenuItem>}
+            {wallet.clientSigner && <DropdownMenuItem onClick={() => { }}>Disconnect Wallet</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

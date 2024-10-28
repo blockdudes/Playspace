@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, ChangeEvent, FormEvent } from 'react'
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,13 +8,48 @@ import { toast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { uploadImageToPinata } from '@/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import axios from 'axios'
+import { connectWallet } from '@/lib/reducers/integrate_wallet_slice'
+import { getUserData } from '@/lib/reducers/user_data_slice'
 
+export interface GameRegister {
+    gameName: string,
+    gameImages: string[],
+    gameCategory: string,
+    gameType: string,
+    gameDescription: string,
+    gameCreator: string,
+    gameData: string
+}
 export default function GameListingForm() {
-    const [formData, setFormData] = useState({
+    const wallet = useAppSelector(state => state.wallet)
+    const user = useAppSelector(state => state.user.user)
+    const dispatch = useAppDispatch()
+
+    console.log('user',user)
+    useEffect(()=> {
+        dispatch(connectWallet())
+    },[])
+
+    useEffect(()=> {
+        if (wallet.signer) {
+            dispatch(getUserData(wallet.signer))
+        }
+    },[wallet])
+
+
+    const [formData, setFormData] = useState<GameRegister>({
         gameName: '',
-        gameUrl: '',
-        mode: 'play-to-win',
+        gameCategory: 'play-to-win',
+        gameType: 'EARNING',
+        gameDescription: '',
+        gameCreator: "",
+        gameData: '',
+        gameImages: []
     })
+
+    console.log(formData)
     const [gameImageUrl, setGameImageUrl] = useState<string>('')
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -40,7 +75,7 @@ export default function GameListingForm() {
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        let imageUrl = gameImageUrl; 
+        let imageUrl = `https://tomato-characteristic-quail-246.mypinata.cloud/ipfs/${gameImageUrl}`
 
         const imageFile = document.getElementById('gameImage') as HTMLInputElement;
 
@@ -48,11 +83,13 @@ export default function GameListingForm() {
             imageUrl = await uploadImageToPinata(imageFile.files[0]);
         }
 
-        const gameData = { ...formData, gameImage: imageUrl };
-        console.log(gameData);
+        const submitData: GameRegister = { ...formData, gameImages: [imageUrl], gameCreator: user?._id };
+
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/game/register`, submitData);
+        console.log(response.data);
         toast({
             title: 'Game listed successfully',
-            description: 'Game data: ' + JSON.stringify(gameData),
+            description: 'Game data: ' + JSON.stringify(submitData),
         });
 
     }
@@ -87,12 +124,24 @@ export default function GameListingForm() {
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="gameUrl" className="text-white">Game URL (Iframe/IPFS)</Label>
+                                <Label htmlFor="gameData" className="text-white">Game URL (Iframe/IPFS)</Label>
                                 <Input
-                                    id="gameUrl"
-                                    name="gameUrl"
+                                    id="gameData"
+                                    name="gameData"
                                     type="url"
-                                    value={formData.gameUrl}
+                                    value={formData.gameData}
+                                    onChange={handleInputChange}
+                                    placeholder="https://example.com/iframe"
+                                    className="bg-white/20 border-white/30 text-white !placeholder-white/50"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="gameDescription" className="text-white">Game Description</Label>
+                                <Input
+                                    id="gameDescription"
+                                    name="gameDescription"
+                                    value={formData.gameDescription}
                                     onChange={handleInputChange}
                                     placeholder="https://example.com/iframe"
                                     className="bg-white/20 border-white/30 text-white !placeholder-white/50"
@@ -119,7 +168,7 @@ export default function GameListingForm() {
                             </div>
                             <div>
                                 <Label htmlFor="mode" className="text-white">Game Mode</Label>
-                                <Select onValueChange={handleModeChange} defaultValue={formData.mode}>
+                                <Select onValueChange={handleModeChange} defaultValue={formData.gameCategory}>
                                     <SelectTrigger className="bg-white/20 border-white/30 text-white placeholder-white/50">
                                         <SelectValue placeholder="Select mode" />
                                     </SelectTrigger>
@@ -145,7 +194,7 @@ export default function GameListingForm() {
                                 <AvatarFallback className="bg-gradient-to-r from-gray-400 to-white">GM</AvatarFallback>
                             </Avatar>
                             <h3 className="text-xl font-bold text-white">{formData.gameName || "My Awesome Game"}</h3>
-                            <p className="text-white/70 text-sm mt-2">{formData.mode === 'play-to-win' ? "Play to Win" : "Free to Play"}</p>
+                            <p className="text-white/70 text-sm mt-2">{formData.gameCategory === 'play-to-win' ? "Play to Win" : "Free to Play"}</p>
                         </div>
                     </div>
                 </div>

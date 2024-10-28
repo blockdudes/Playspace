@@ -1,21 +1,31 @@
 'use client'
 
-import { useState, ChangeEvent, FormEvent } from 'react'
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { uploadImageToPinata } from '@/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import axios from 'axios'
+import { useRouter } from 'next/navigation'
+import { connectWallet } from '@/lib/reducers/integrate_wallet_slice'
 
 export default function RegistrationForm() {
+  const dispatch = useAppDispatch();
+  const wallet = useAppSelector(state => state.wallet);
+  useEffect(() => {
+    dispatch(connectWallet())
+  },[])
+  console.log(wallet)
   const [formData, setFormData] = useState({
     name: '',
     username: '',
     email: '',
   })
+  const router = useRouter();
   const [avatarUrl, setAvatarUrl] = useState<string>('')
-
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -24,6 +34,7 @@ export default function RegistrationForm() {
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      console.log(file)
       const reader = new FileReader()
       reader.onloadend = () => {
         setAvatarUrl(reader.result as string)
@@ -33,17 +44,28 @@ export default function RegistrationForm() {
   }
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    console.log('enter')
     e.preventDefault();
+    if (!wallet.clientSigner) {
+      console.log('wallet not connected')
+      toast({
+        title: 'Wallet not connected',
+        description: 'Please connect your wallet to continue.',
+      });
+      return;
+    }
 
     let imageUrl = avatarUrl; 
 
     const imageFileInput = document.getElementById('avatar') as HTMLInputElement;
     const file = imageFileInput.files ? imageFileInput.files[0] : null;
+    console.log('file',file)
 
     if (file) {
       try {
+        console.log('uploading image')
         imageUrl = await uploadImageToPinata(file); 
-        setAvatarUrl(imageUrl); 
+        console.log('imageUrl',imageUrl)
       } catch (error) {
         console.error("Failed to upload image to Pinata:", error);
         toast({
@@ -54,8 +76,13 @@ export default function RegistrationForm() {
       }
     }
 
-    const userData = { ...formData, avatar: imageUrl };
-    console.log(userData);
+    const userData = { ...formData, address: wallet.signer , image: `https://tomato-characteristic-quail-246.mypinata.cloud/ipfs/${imageUrl}`, password: "password"};
+    console.log('userData',userData)
+    const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/user/register`, userData);
+    if (response?.data?.message) {
+      router.push(`${process.env.NEXT_PUBLIC_HOME_URL}`)
+    }
+
     toast({
       title: 'User registered successfully',
       description: 'User data: ' + JSON.stringify(userData),
@@ -76,7 +103,7 @@ export default function RegistrationForm() {
               value={formData.name}
               onChange={handleInputChange}
               placeholder="John Doe"
-              className="bg-white/20 border-white/30 text-white placeholder-white/50"
+              className="bg-white/20 border-white/30 text-white !placeholder-white/50"
               required
             />
           </div>
@@ -88,7 +115,7 @@ export default function RegistrationForm() {
               value={formData.username}
               onChange={handleInputChange}
               placeholder="johndoe"
-              className="bg-white/20 border-white/30 text-white placeholder-white/50"
+              className="bg-white/20 border-white/30 text-white !placeholder-white/50"
               required
             />
           </div>
@@ -101,7 +128,7 @@ export default function RegistrationForm() {
               value={formData.email}
               onChange={handleInputChange}
               placeholder="john@example.com"
-              className="bg-white/20 border-white/30 text-white placeholder-white/50"
+              className="bg-white/20 border-white/30 text-white !placeholder-white/50"
               required
             />
           </div>

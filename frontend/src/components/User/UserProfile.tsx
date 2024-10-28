@@ -58,9 +58,7 @@ export default function GamingProfile() {
     <div className="container mx-auto p-4 ">
       <Card className="h-[90vh] max-w-6xl mx-auto bg-gray-800 text-white border-2 border-gray-600">
         <CardHeader className="border-b border-gray-700">
-            <Button variant="ghost" className="absolute top-2 left-2 w-20 h-20 p-12 hover:bg-transparent hover:text-white hover:underline ">
-                <ArrowLeft className="w-10 h-10 hover:bg-none" /> Go Back
-            </Button>
+          <div className="flex justify-between">
           <div className="flex items-center space-x-4">
             <Avatar className="w-24 h-24 border-2 border-primary ">
               <AvatarImage src={user.avatar} alt={user.name} />
@@ -79,6 +77,12 @@ export default function GamingProfile() {
               </div>
             </div>
           </div>
+          <div className="flex flex-col gap-2 justify-center items-center">
+            <div className="text-gray-300">Rewards - 100$</div>
+            <button className="bg-primary text-primary-foreground hover:bg-white hover:text-primary p-2 rounded-md">Claim</button>
+          </div>
+          </div>
+
         </CardHeader>
         <CardContent className="pt-6">
           <Tabs defaultValue="gambling" className="w-full">

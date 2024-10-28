@@ -8,12 +8,21 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
+import { toUtf8 } from 'cosmwasm'
+import { accounts, adminClient } from "@/admin/signer";
+import axios from 'axios'
+import { connectWallet } from '@/lib/reducers/integrate_wallet_slice'
+
+
 
 const tokens = [
-  { symbol: 'ECL', name: 'Euclid', balance: '1.5', video: '/assets/eucl.mp4' },
-  { symbol: 'Game', name: 'Game Coin', balance: '1000', logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTAGvRhdg1vaZyhkn5zzE7p35e70SUgv0TVCw&s' },
-  { symbol: 'Arch', name: 'Arch', balance: '1000', logo: 'https://assets.coingecko.com/coins/images/30789/large/bxLJkEWw_400x400.jpg?1696529656' },
+  { symbol: 'EGT', name: 'EuclidGameToken', video: '/assets/eucl.mp4' },
+  { symbol: 'Arch', name: 'Arch', logo: 'https://assets.coingecko.com/coins/images/30789/large/bxLJkEWw_400x400.jpg?1696529656' },
 ]
+
+
 
 export default function SwapComponent() {
   const [inputToken, setInputToken] = useState(tokens[0])
@@ -21,26 +30,75 @@ export default function SwapComponent() {
   const [inputAmount, setInputAmount] = useState('')
   const [outputAmount, setOutputAmount] = useState('')
   const [isSwapping, setIsSwapping] = useState(false)
+  const wallet = useAppSelector(state => state.wallet);
+  const [gameTokenBalance, setGameTokenBalance] = useState<string | undefined>(undefined)
+  const [nativeBalance, setNativeBalance] = useState<string | undefined>(undefined)
+  const dispatch = useAppDispatch()
 
   useEffect(() => {
+    dispatch(connectWallet())
     if (inputAmount) {
-      const calculatedOutput = (parseFloat(inputAmount) * 1.5).toFixed(6)
-      setOutputAmount(calculatedOutput)
+      const calculatedOutput =  inputToken.symbol === "EGT" ? (convertEUCLGameTokenToConst(Number(inputAmount))) : (convertConstToEUCLGameToken(Number(inputAmount)))
+      setOutputAmount(calculatedOutput.toFixed(3))
     } else {
       setOutputAmount('')
     }
   }, [inputAmount, inputToken, outputToken])
 
-  const handleSwap = () => {
-    setIsSwapping(true)
-    setTimeout(() => {
+  useEffect(() => {
+    balance("EGT").then((balance) => setGameTokenBalance(balance))
+    balance("Arch").then((balance) => setNativeBalance(balance))
+  }, [wallet])
+
+  const handleSwap = async () => {
+    try {
+      if (!wallet.signer) {
+        throw new Error("Connect your wallet")
+      }
+
+      if (inputAmount === '0' || !inputAmount || inputToken.symbol === outputToken.symbol) {
+        throw new Error("Enter an amount or select different tokens")
+      }
+      
+      setIsSwapping(true)
+      if (inputToken.symbol === "EGT") {
+        await swap("fungible", Number(inputAmount), "EXE")
+      } else {
+        await swap("native", Number(inputAmount), "SWAP")
+      }
+    
+    } catch (error) {
+      throw error      
+    }
+    finally{
       setIsSwapping(false)
       setInputAmount('')
       setOutputAmount('')
-    }, 2000)
+    }
   }
 
-  const TokenSelector = ({ token, setToken, label, excludeToken }: { token: any, setToken: any, label: string, excludeToken: any }) => (
+  const balance = async (token: string) => {
+    console.log(wallet)
+    if (token === "EGT") {
+      const query = await wallet.clientSigner?.queryContractSmart(
+        process.env.NEXT_PUBLIC_GAME_TOKEN_CONTRACT_ADDRESS,
+        {
+            balance: {
+                address: wallet.signer,
+            }
+        }
+    )
+    const balance = (query.balance / 10 ** 6).toFixed(3).toString();
+    return balance;
+    } else if (token === "Arch"){
+      const query = await wallet.clientSigner?.queryClient.bank.balance(wallet.signer, "aconst")
+      return (query.amount / 10 ** 18).toFixed(3).toString();
+    }
+  }
+
+  const TokenSelector = ({ token, setToken, label, excludeToken }: { token: any, setToken: any, label: string, excludeToken: any }) => {
+    
+    return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" className="flex items-center justify-center bg-white/10 w-full rounded-lg backdrop-blur-md hover:bg-white/30 transition border border-white/30 shadow-lg">
@@ -71,13 +129,391 @@ export default function SwapComponent() {
                   <img src={t.logo} alt={t.name} className="w-6 h-6 rounded-full mr-2" />
                 )}
                 <span className="text-white font-medium">{t.symbol}</span>
-                <span className="ml-auto text-sm text-gray-400">{t.balance}</span>
+                <span className="ml-auto text-sm text-gray-400">{t.symbol === "EGT" ? gameTokenBalance : nativeBalance}</span>
               </Button>
             ))}
         </div>
       </PopoverContent>
     </Popover>
-  )
+  )}
+
+  const approveTokens = async (amount: number,) => {
+    try {
+        if (!wallet.error && wallet.signer) {
+            const executeContractMessage = {
+                typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+                value: MsgExecuteContract.fromPartial({
+                    sender: wallet.signer,
+                    contract: process.env.NEXT_PUBLIC_GAME_TOKEN_CONTRACT_ADDRESS,
+                    msg: toUtf8(JSON.stringify({
+                        increase_allowance: {
+                            spender: accounts.address,
+                            amount: String(amount * 10 ** 6),
+                            expires: null
+                        }
+                    })),
+                    funds: []
+                })
+            };
+
+            const fee = {
+                amount: [{ amount: "280000000000000000", denom: "aconst" }],
+                gas: "2000000"
+            };
+
+            const result = await wallet.clientSigner.signAndBroadcast(
+                wallet.signer,
+                [executeContractMessage],
+                fee,
+                ""
+            );
+            console.log(result);
+        } else {
+            console.log("connect your wallet!")
+        }
+
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("Invalid string. Length must be a multiple of 4")) {
+            console.warn("Non-critical error during transaction decoding:", error.message);
+            // You might want to add some additional logging or telemetry 
+        }
+    }
+}
+
+
+const convertConstToEUCLGameToken = (constAmount: number): number => {
+  const conversionRate = 20;
+  return constAmount * conversionRate;
+};
+
+const convertEUCLGameTokenToConst = (euclGameTokenAmount: number): number => {
+  const conversionRate = 20;
+  return euclGameTokenAmount / conversionRate;
+};
+
+const exchange = async (tokens: any) => {
+
+  const fee = {
+      amount: [{ amount: "280000000000000000", denom: "aconst" }],
+      gas: "2000000"
+  };
+  try {
+
+      if (tokens.tokenA.type === "native") {
+          const sendMsg = {
+              typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+              value: {
+                  fromAddress: wallet.signer,
+                  toAddress: accounts.address,
+                  amount: [
+                      {
+                          denom: 'aconst',
+                          amount: String(Number(tokens.tokenA.amount) * 10 ** 18),
+                      },
+                  ],
+              },
+          };
+
+          const result = await wallet.clientSigner.signAndBroadcast(wallet.signer, [sendMsg], 'auto');
+          if (result.code === 0) {
+              const executeContractMessage = {
+                  typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+                  value: MsgExecuteContract.fromPartial({
+                      sender: accounts.address,
+                      contract: process.env.NEXT_PUBLIC_GAME_TOKEN_CONTRACT_ADDRESS,
+                      msg: toUtf8(JSON.stringify({
+                          transfer: {
+                              recipient: wallet.signer,
+                              amount: String(convertConstToEUCLGameToken(tokens.tokenA.amount) * 10 ** 6)
+                          }
+                      })),
+                      funds: []
+                  })
+              };
+
+              const result = await adminClient.signAndBroadcast(
+                  accounts.address,
+                  [executeContractMessage],
+                  fee,
+                  ""
+              );
+
+          } else {
+              console.log("error");
+          }
+      } else {
+          const executeContractMessage = {
+              typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+              value: MsgExecuteContract.fromPartial({
+                  sender: wallet.signer,
+                  contract: process.env.NEXT_PUBLIC_GAME_TOKEN_CONTRACT_ADDRESS,
+                  msg: toUtf8(JSON.stringify({
+                      transfer: {
+                          recipient: accounts.address,
+                          amount: String(Number(tokens.tokenA.amount) * 10 ** 6)
+                      }
+                  })),
+                  funds: []
+              })
+          };
+
+          console.log(executeContractMessage);
+          console.log(convertEUCLGameTokenToConst(tokens.tokenA.amount));
+
+          const fee = {
+              amount: [{ amount: "280000000000000000", denom: "aconst" }],
+              gas: "2000000"
+          };
+
+          const result = await wallet.clientSigner.signAndBroadcast(
+              wallet.signer,
+              [executeContractMessage],
+              fee,
+              ""
+          );
+
+          if (result.code === 0) {
+              const sendMsg = {
+                  typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+                  value: {
+                      fromAddress: accounts.address,
+                      toAddress: wallet.signer,
+                      amount: [
+                          {
+                              denom: 'aconst',
+                              amount: String(convertEUCLGameTokenToConst(tokens.tokenA.amount) * 10 ** 18),
+                          },
+                      ],
+                  },
+              };
+
+              const resultNative = await adminClient.signAndBroadcast(accounts.address, [sendMsg], fee, "");
+
+              console.log(resultNative);
+
+              if (resultNative.code === 0) {
+                  console.log("success")
+              } else {
+                  console.log("failed")
+              }
+          }
+      }
+
+      console.log(tokens)
+  } catch (error) {
+      if (error instanceof Error && error.message.includes("Invalid string. Length must be a multiple of 4")) {
+          console.warn("Non-critical error during transaction decoding:", error.message);
+          // You might want to add some additional logging or telemetry 
+
+          try {
+              if (tokens.tokenA.type !== "native") {
+                  console.log(convertEUCLGameTokenToConst(tokens.tokenA.amount));
+                  const sendMsg = {
+                      typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+                      value: {
+                          fromAddress: accounts.address,
+                          toAddress: wallet.signer,
+                          amount: [
+                              {
+                                  denom: 'aconst',
+                                  amount: String(convertEUCLGameTokenToConst(tokens.tokenA.amount) * 10 ** 18),
+                              },
+                          ],
+                      },
+                  };
+
+                  const resultNative = await adminClient.signAndBroadcast(accounts.address, [sendMsg], fee, "");
+
+                  console.log(resultNative);
+
+                  if (resultNative.code === 0) {
+                      console.log("success")
+                  } else {
+                      console.log("failed")
+                  }
+              }
+          } catch (error) {
+              if (error instanceof Error && error.message.includes("Invalid string. Length must be a multiple of 4")) {
+                  console.warn("Non-critical error during transaction decoding:", error.message);
+              }
+          }
+      } else {
+          // Re-throw any other errors
+          throw error;
+      }
+  }
+}
+
+const swap = async (type: string, amount: number, transactionType: string) => {
+  try {
+
+      const tokens = {
+          tokenA: {
+              type: type,
+              amount: amount
+          },
+          tokenB: {
+              type: process.env.NEXT_PUBLIC_GAME_TOKEN_CONTRACT_ADDRESS,
+              amount: 1
+          },
+          transactionType: transactionType
+      }
+
+      if (!wallet.error && wallet.signer) {
+          if (tokens.transactionType === "SWAP") {
+              const swapResponse = await axios.post('https://testnet.api.euclidprotocol.com/api/v1/execute/swap', {
+                  amount_in: String(Number(tokens.tokenA.amount) * 10 ** 18),
+                  asset_in: {
+                      token: "const",
+                      token_type: { voucher: {} }
+                  },
+                  asset_out: "euclid",
+                  cross_chain_addresses: [],
+                  min_amount_out: "1",
+                  partner_fee: null,
+                  sender: {
+                      address: wallet.signer,
+                      chain_uid: "archway"
+                  },
+                  swaps: ["const", "euclid"],
+                  timeout: null
+              }, {
+                  headers: {
+                      'accept': 'application/json',
+                      'Content-Type': 'application/json'
+                  }
+              });
+
+              const { sender, contract, msgs } = swapResponse.data;
+
+              // console.log(sender, contract, msgs);
+
+              const executeContractMessage = {
+                  typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+                  value: MsgExecuteContract.fromPartial({
+                      sender: wallet.signer,
+                      contract: contract,
+                      msg: toUtf8(JSON.stringify(msgs[0].msg)),
+                      funds: []
+                  })
+              };
+
+              console.log(executeContractMessage);
+
+              const fee = {
+                  amount: [{ amount: "280000000000000000", denom: "aconst" }],
+                  gas: "2000000"
+              };
+
+              const result = await wallet.clientSigner.signAndBroadcast(
+                  wallet.signer,
+                  [executeContractMessage],
+                  fee,
+                  "Executing swap"
+              );
+
+              console.log("Transaction result:", (convertConstToEUCLGameToken(tokens.tokenA.amount)));
+
+              if (result.code === 0) {
+                
+              //   const sendMsg = {
+              //     typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+              //     value: {
+              //         fromAddress: wallet.signer,
+              //         toAddress: accounts.address,
+              //         amount: [
+              //             {
+              //                 denom: 'aconst',
+              //                 amount: String(Number(tokens.tokenA.amount) * 10 ** 18),
+              //             },
+              //         ],
+              //     },
+              // };
+    
+              // const nativeResult = await wallet.clientSigner.signAndBroadcast(wallet.signer, [sendMsg], 'auto');
+
+                  const executeContractMessage = {
+                      typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+                      value: MsgExecuteContract.fromPartial({
+                          sender: accounts.address,
+                          contract: process.env.NEXT_PUBLIC_GAME_TOKEN_CONTRACT_ADDRESS,
+                          msg: toUtf8(JSON.stringify({
+                              transfer: {
+                                  recipient: wallet.signer,
+                                  amount: String(convertConstToEUCLGameToken(tokens.tokenA.amount) * 10 ** 6)
+                              }
+                          })),
+                          funds: []
+                      })
+                  };
+
+                  const result = await adminClient.signAndBroadcast(
+                      accounts.address,
+                      [executeContractMessage],
+                      fee,
+                      ""
+                  );
+              }
+
+          } else {
+              await exchange(tokens);
+          }
+      } else {
+          console.log("connect your wallet!");
+      }
+  } catch (error) {
+      if (error instanceof Error && error.message.includes("Invalid string. Length must be a multiple of 4")) {
+          console.warn("Non-critical error during transaction decoding:", error.message);
+      } else {
+          throw error;
+      }
+  }
+}
+
+const transferFromTokens = async (amount: number) => {
+    console.log(amount);
+    try {
+        if (!wallet.error && wallet.signer) {
+            const executeContractMessage = {
+                typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+                value: MsgExecuteContract.fromPartial({
+                    sender: accounts.address,
+                    contract: process.env.NEXT_PUBLIC_GAME_TOKEN_CONTRACT_ADDRESS,
+                    msg: toUtf8(JSON.stringify({
+                        transfer_from: {
+                            owner: wallet.signer,
+                            recipient: accounts.address,
+                            amount: String(amount * 10 ** 6)
+                        }
+                    })),
+                    funds: []
+                })
+            };
+            console.log(executeContractMessage);
+
+            const fee = {
+                amount: [{ amount: "280000000000000000", denom: "aconst" }],
+                gas: "2000000"
+            };
+
+            const result = await adminClient.signAndBroadcast(
+                accounts.address,
+                [executeContractMessage],
+                fee,
+                ""
+            );
+            console.log(result);
+        } else {
+            console.log("connect your wallet!")
+        }
+
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("Invalid string. Length must be a multiple of 4")) {
+            console.warn("Non-critical error during transaction decoding:", error.message);
+            // You might want to add some additional logging or telemetry 
+        }
+    }
+}
 
   return (
     <div className="w-full max-w-lg mx-auto p-6 h-[80%] space-y-6 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl shadow-xl border border-gray-700 backdrop-blur-md">
@@ -103,7 +539,7 @@ export default function SwapComponent() {
               />
               <TokenSelector token={inputToken} setToken={setInputToken} label="Input Token" excludeToken={outputToken} />
             </div>
-            <div className="text-sm text-gray-400 mt-1">Balance: {inputToken.balance} {inputToken.symbol}</div>
+            <div className="text-sm text-gray-400 mt-1">Balance: {inputToken.symbol === "EGT" ? gameTokenBalance : nativeBalance}</div>
           </div>
 
           <div className="flex justify-center my-2">
@@ -137,7 +573,7 @@ export default function SwapComponent() {
               />
               <TokenSelector token={outputToken} setToken={setOutputToken} label="Output Token" excludeToken={inputToken} />
             </div>
-            <div className="text-sm text-gray-400 mt-1">Balance: {outputToken.balance} {outputToken.symbol}</div>
+            <div className="text-sm text-gray-400 mt-1">Balance: {outputToken.symbol === "EGT" ? gameTokenBalance : nativeBalance}</div>
           </div>
         </div>
       </div>

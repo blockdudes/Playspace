@@ -27,6 +27,7 @@ const Sidebar: React.FC = () => {
           { name: "Spin Board", icon: ShipWheelIcon , route: "/home/games/spinBoard"},
           { name: "Play To Earn", icon: LucideBitcoin , route: "/home/games/playToEarn"},
           { name: 'Register Games', icon: GamepadIcon , route: "/RegisterGame"},
+          { name: 'Profile', icon: GamepadIcon , route: "/profile"},
           { name: "Referral program", icon: Users2 , route: "/referral"},
           { name: "Swap", icon: LucideSquareArrowUp , route: "/Swap"},
           { name: "FAQ", icon: HelpCircle , route: "/faq"},

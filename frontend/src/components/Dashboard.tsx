@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, lazy, Suspense } from "react";
+import React, { useState, lazy, Suspense, useEffect } from "react";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import Header from "@/components/Dashboard/Header";
 import BonusCard from "@/components/Dashboard/BonusCard";
@@ -10,21 +10,31 @@ import RegisterPromptModal from "./general/RegisterPromptModal";
 import SwapComponent from "./general/Swap";
 import RegistrationForm from "./general/RegistrationForm";
 import GamingProfile from "./User/UserProfile";
-import GameListingForm from "./general/RegisterGame";
+import GameListingForm from "./general/RegisterGame"; 
 import { Button } from "./ui/button";
 import { ArrowLeft } from "lucide-react";
 
 import { useRouter } from "next/navigation";
-import { Game } from "@/app/home/games/playToEarn/page";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { getUserData } from "@/lib/reducers/user_data_slice";
 
 export default function Dashboard() {
-  const [isRegistered, setIsRegistered] = useState(false); // User registration status
+  const user = useAppSelector(state => state.user);
+  const wallet = useAppSelector(state => state.wallet);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false); // Modal visibility
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const dispatch = useAppDispatch();
+
+  useEffect(()=> {
+    if (typeof window == 'undefined') {
+      return;
+    }
+    dispatch(getUserData(wallet.signer))
+  },[wallet])
 
   const handleGameClick = (gameId: number) => {
-    if (!isRegistered) {
+    if (!user.user) {
       setShowRegisterPrompt(true);
     }
     else {
@@ -32,6 +42,7 @@ export default function Dashboard() {
     }
   };
 
+  console.log('user',user)
 
   return (
     <div className="flex h-screen bg-[#1F2128] text-white overflow-hidden relative">
@@ -41,7 +52,7 @@ export default function Dashboard() {
 
       <Sidebar />
       <main className="flex-1 p-6 overflow-auto bg-[#1F2128]/50 backdrop-blur-sm z-10">
-        <Header registered={isRegistered} walletConnected={true} />
+        <Header registered={user.user ? true : false} />
         <BonusCard />
         <div className="grid grid-cols-2 gap-4 mb-6">
           <Suspense fallback={<div>Loading...</div>}>
@@ -61,7 +72,7 @@ export default function Dashboard() {
         </div>
         <Suspense fallback={<div>Loading...</div>}>
           <GameSearch onSearchChange={setSearchQuery} />
-          <GameGrid searchQuery={searchQuery} registered={isRegistered} setShowRegisterPrompt={setShowRegisterPrompt} />
+          <GameGrid searchQuery={searchQuery} registered={user.user ? true : false} setShowRegisterPrompt={setShowRegisterPrompt} />
         </Suspense>
       </main>
 
