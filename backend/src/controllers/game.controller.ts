@@ -6,12 +6,18 @@ const error = new Error();
 
 export const registerGame = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { gameId, gameName, gameType, gameCreator, gameData, gameImages } = req.body;
-        if (!gameId || !gameName || !gameType || !gameCreator || !gameData || !gameImages || (gameImages as string[]).length === 0) {
+        const { gameName, gameType, gameCreator, gameData, gameImages, gameCategory, gameDescription } = req.body;
+        if ( !gameName || !gameType || !gameCreator || !gameData || !gameImages || (gameImages as string[]).length === 0) {
             error.message = "missing required fields";
             (error as any).statusCode = 400;
             return next(error);
         }
+
+        const games = await gameModel.find().populate({
+            path: 'gameCreator',
+            select: 'name image email address username'
+        });
+
 
         const checkUserRegistered = await userModel.findById({ _id: gameCreator });
         if (!checkUserRegistered) {
@@ -27,13 +33,12 @@ export const registerGame = async (req: Request, res: Response, next: NextFuncti
             return next(error);
         }
 
-        const createGame = await gameModel.create({ gameId, gameName, gameType, gameCreator, gameData, gameImages });
+        const createGame = await gameModel.create({ gameId: games.length + 1, gameName, gameType, gameCreator, gameData, gameImages, gameCategory, gameDescription });
         return res.status(200).json({ message: "created successfully...", game: createGame })
     } catch (error) {
         next(error);
     }
 }
-
 export const getAllGames = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const games = await gameModel.find();

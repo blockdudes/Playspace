@@ -10,6 +10,8 @@ import { adminClient } from "@/admin/signer";
 import axios from "axios";
 
 const RouletteGame = () => {
+  const [isApproving, setIsApproving] = useState(false);
+
   const levels = {
     easy: [
       { option: "1" },
@@ -99,11 +101,18 @@ const RouletteGame = () => {
       return;
     }
 
-    await approveTokens(10, wallet);
-    const levelData = levels[selectedLevel as keyof typeof levels];
-    const newPrizeNumber = Math.floor(Math.random() * levelData.length);
-    setPrizeNumber(newPrizeNumber);
-    setMustSpin(true);
+    setIsApproving(true);
+    try {
+      await approveTokens(10, wallet);
+      const levelData = levels[selectedLevel as keyof typeof levels];
+      const newPrizeNumber = Math.floor(Math.random() * levelData.length);
+      setPrizeNumber(newPrizeNumber);
+      setMustSpin(true);
+    } catch (error) {
+      alert('Approval failed or insufficient funds');
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   const handleStopSpinning = async () => {
@@ -220,9 +229,9 @@ const RouletteGame = () => {
         <button
           className="roulette-button"
           onClick={handleSpinClick}
-          disabled={mustSpin}
+          disabled={mustSpin || isApproving}
         >
-          Spin
+          {isApproving ? 'Wait...' : 'Spin'}
         </button>
       </div>
 

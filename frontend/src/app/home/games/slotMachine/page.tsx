@@ -54,6 +54,7 @@ const SlotMachine: React.FC = () => {
   const [startGame, setStartGame] = useState<boolean>(false);
   const [gameKey, setGameKey] = useState<number>(0);
   const [isSpinning, setIsSpinning] = useState<boolean>(false);
+  const [isApproving, setIsApproving] = useState<boolean>(false); // New loading state for approval
   const matches = useRef<number[]>([]);
 
   const wallet = useAppSelector(state => state.wallet);
@@ -71,16 +72,18 @@ const SlotMachine: React.FC = () => {
   }, [wallet])
 
   async function handleStart() {
-    await approveTokens(10, wallet)
-    const checkApproval = true;
-    if (checkApproval) {
+    setIsApproving(true); // Start loading
+    try {
+      await approveTokens(10, wallet);
       setWinner(null);
       matches.current = [];
       setStartGame(true);
       setIsSpinning(true);
       setGameKey(prevKey => prevKey + 1);
-    } else {
+    } catch (error) {
       alert('Wallet approval needed or insufficient funds');
+    } finally {
+      setIsApproving(false); // End loading
     }
   }
 
@@ -156,7 +159,9 @@ const SlotMachine: React.FC = () => {
         <Spinner key={gameKey * 3} onStart={startGame} onFinish={finishHandler} timer={2200} />
       </div>
       <div className="h-[80%] w-full flex justify-center items-end">
-        <button aria-label="Start Game" className='bg-blue-500 text-white p-2 rounded-lg border-2' onClick={handleStart}>{winner !== null ? 'Play Again' : 'Start Game'}</button>
+        <button aria-label="Start Game" className='bg-blue-500 text-white p-2 rounded-lg border-2' onClick={handleStart}>
+          {isApproving ? 'Approving...' : (winner !== null ? 'Play Again' : 'Start Game')}
+        </button>
       </div>
     </div>
   );

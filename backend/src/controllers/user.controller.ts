@@ -141,17 +141,19 @@ export const getGameHistoryByUser = async (req: Request, res: Response, next: Ne
         const address = req.params.address;
         const userFind = await userModel.findOne({ address });
         if (!userFind) {
-            error.message = "user not exist!";
+            const error = new Error("User not exist!");
             (error as any).statusCode = 400;
             return next(error);
         }
-        const userGameHistory = await gameHistoryModel.find({ player: userFind._id });
+        const userGameHistory = await gameHistoryModel.find({ player: userFind._id })
+            .populate('game')
+            .populate('player');
 
         return res.status(200).json({
-            message: "user game history",
+            message: "User game history",
             userGameHistory
-        })
+        });
     } catch (error) {
-        next(error)
+        next(error);
     }
 }

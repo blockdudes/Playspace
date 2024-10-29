@@ -114,7 +114,7 @@ async function claimRewards(wallet: any, accounts: any, dispatch: any, user: any
 export default function GamingProfile() {
   const dispatch = useAppDispatch();
   const wallet = useAppSelector((state) => state.wallet);
-  const user = useAppSelector((state) => state.user.user);
+  const user = useAppSelector((state: any) => state.user.user);
   const [history, setHistory] = useState([]);
   console.log('history', history)
   console.log('user', history)
@@ -186,13 +186,13 @@ export default function GamingProfile() {
                     Level {user?.level}
                   </Badge>
                   <Badge variant="outline" className="border-green-500 text-green-400">
-                    ${user?.rewards.toLocaleString()} earned
+                    {user?.rewards.toLocaleString()} earned
                   </Badge>
                 </div>
               </div>
             </div>
             <div className="flex flex-col gap-2 justify-center items-center">
-              <div className="text-gray-300">Rewards - {user?.rewards.toLocaleString()}$</div>
+              <div className="text-gray-300">Rewards - {user?.rewards.toLocaleString()} EGT</div>
               <button className="bg-primary text-primary-foreground hover:bg-white hover:text-primary p-2 rounded-md" onClick={handleClaimRewards}>Claim</button>
             </div>
           </div>
@@ -228,6 +228,7 @@ export default function GamingProfile() {
 }
 
 function GamblingHistoryTable({ games }: { games: GamblingGame[] }) {
+  console.log('result',games[4]?.result.toLocaleUpperCase())
   return (
     <div className="max-h-[400px] overflow-y-auto scrollbar-custom">
       <Table>
@@ -240,17 +241,17 @@ function GamblingHistoryTable({ games }: { games: GamblingGame[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {games.map((game) => (
-            <TableRow key={game.id} className="border-b border-gray-700">
+          {games.map((game, index) => (
+            <TableRow key={index} className="border-b border-gray-700">
               <TableCell className="font-medium text-white">{game.name}</TableCell>
               <TableCell>
-                <Badge variant={game.result === 'win' ? 'default' : 'destructive'}
-                  className={game.result === 'win' ? "text-white bg-green-600" : "text-white"}>
-                  {game.result === 'win' ? <Trophy className="w-4 h-4 mr-1" /> : <DollarSign className="w-4 h-4 mr-1" />}
+                <Badge variant={game.result.toLocaleLowerCase() === 'win' ? 'default' : 'destructive'}
+                  className={game.result.toLocaleLowerCase() === 'win' ? "text-white bg-green-600" : "text-white"}>
+                  {game.result.toLocaleLowerCase() === 'win' ? <Trophy className="w-4 h-4 mr-1" /> : <DollarSign className="w-4 h-4 mr-1" />}
                   {game.result}
                 </Badge>
               </TableCell>
-              <TableCell className="text-white">${game.amount}</TableCell>
+              <TableCell className="text-white">{game.amount}</TableCell>
               <TableCell className="text-white">{game.date}</TableCell>
             </TableRow>
           ))}

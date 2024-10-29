@@ -10,6 +10,9 @@ import { getUserData } from '@/lib/reducers/user_data_slice';
 import { adminClient } from '@/admin/signer';
 import axios from 'axios';
 
+// Define gameState to include 'running' as a possible value
+type GameState = 'start' | 'end' | 'running';
+
 function getRandomInt(min: number, max: number) {
   min = Math.ceil(min);
   max = Math.floor(max);
@@ -17,9 +20,9 @@ function getRandomInt(min: number, max: number) {
 }
 
 function generateRandomMines() {
-  let randomNumbers: number[] = [];
+  const randomNumbers: number[] = [];
   while (randomNumbers.length < 3) {
-    let randomNumber = getRandomInt(1, 25);
+    const randomNumber = getRandomInt(1, 25);
     if (!randomNumbers.includes(randomNumber)) {
       randomNumbers.push(randomNumber);
     }
@@ -27,30 +30,27 @@ function generateRandomMines() {
   return randomNumbers;
 }
 
-const mines = () => {
+const Mines = () => {
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(100);
-  const [gameState, setGameState] = useState('start');
+  const [gameState, setGameState] = useState<GameState>('start');
   const [randomNumbers, setRandomNumbers] = useState<number[]>(generateRandomMines());
   const [resetKey, setResetKey] = useState(0);
   const wallet = useAppSelector(state => state.wallet);
   const user = useAppSelector(state => state.user);
   const dispatch = useAppDispatch();
+  const [isApproving, setIsApproving] = useState(false);
 
-  let items = [];
-
-  for (let index = 1; index < 26; index++) {
-    items.push(
-      <Square
-        setScore={setScore}
-        gameOver={gameOver}
-        setGameOver={setGameOver}
-        mine={randomNumbers.includes(index)}
-        key={`${resetKey}-${index}`}
-        disabled={gameState !== 'running'}
-      />
-    );
-  }
+  const items = Array.from({ length: 25 }, (_, index) => (
+    <Square
+      setScore={setScore}
+      gameOver={gameOver}
+      setGameOver={setGameOver}
+      mine={randomNumbers.includes(index + 1)}
+      key={`${resetKey}-${index + 1}`}
+      disabled={gameState !== 'running'}
+    />
+  ));
 
   useEffect(() => {
     if (gameOver && gameState === 'running') {
@@ -60,20 +60,25 @@ const mines = () => {
   }, [gameOver, gameState]);
 
   useEffect(() => {
-    dispatch(connectWallet())
-  }, [])
+    dispatch(connectWallet());
+  }, []);
 
   useEffect(() => {
     if (wallet.signer) {
       dispatch(getUserData(wallet.signer));
     }
-  }, [wallet])
-
-
+  }, [wallet]);
 
   const handleGameStart = async () => {
-    await approveTokens(10, wallet);
-    setGameState('running');
+    setIsApproving(true);
+    try {
+      await approveTokens(10, wallet);
+      setGameState('running');
+      setIsApproving(false);
+    } catch (error) {
+      console.error('Approval failed:', error);
+      setIsApproving(false);
+    }
   };
 
   const handleSaveResult = async () => {
@@ -106,7 +111,6 @@ const mines = () => {
   };
 
   const handlePlayAgain = async () => {
-    // await approveTokens(10, wallet);
     setGameOver(false);
     setScore(100);
     setGameState('start');
@@ -128,8 +132,9 @@ const mines = () => {
           <button
             className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-200"
             onClick={gameState === 'start' ? handleGameStart : handlePlayAgain}
+            disabled={(gameState as GameState) === 'running' || isApproving}
           >
-            {gameState === 'start' ? 'Play' : 'Play Again'}
+            {isApproving ? 'Approving...' : (gameState === 'start' ? 'Play' : 'Play Again')}
           </button>
         )}
       </div>
@@ -137,4 +142,4 @@ const mines = () => {
   );
 }
 
-export default mines;
+export default Mines;
