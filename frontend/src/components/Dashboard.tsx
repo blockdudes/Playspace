@@ -17,6 +17,7 @@ import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getUserData } from "@/lib/reducers/user_data_slice";
+import { connectWallet } from "@/lib/reducers/integrate_wallet_slice";
 
 export default function Dashboard() {
   const user = useAppSelector(state => state.user);
@@ -25,6 +26,13 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
   const dispatch = useAppDispatch();
+
+  useEffect(()=> {
+    if (typeof window == 'undefined') {
+      return;
+    }
+    dispatch(connectWallet())
+  },[])
 
   useEffect(()=> {
     if (typeof window == 'undefined') {
