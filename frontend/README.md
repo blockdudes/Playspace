@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PlaySpace
+
+PlaySpace is a comprehensive gaming platform where users can list games, play, and earn rewards across various gaming categories, including gambling and play-to-earn games. This platform offers a secure, unified experience, providing users with a one-stop hub to explore and engage with different types of games, earn gaming tokens, and interact with a community of players.
 
 ## Getting Started
 
-First, run the development server:
+Follow the steps below to set up and run the PlaySpace application on your local environment.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Prerequisites
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- [Node.js](https://nodejs.org/) and [npm](https://www.npmjs.com/) should be installed on your machine.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Setup Instructions
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Clone the Repository**
 
-## Learn More
+    ```bash
+    git clone https://github.com/your-repo/playspace.git
+    cd playspace
+    ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Configure Environment Variables**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+    - Inside the main project directory, locate the `.env.example` file.
+    - Copy this file and rename it to `.env`.
+    - Open the `.env` file and configure the environment variables as needed.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Run the Frontend**
 
-## Deploy on Vercel
+    - Navigate to the frontend directory:
+    
+      ```bash
+      cd frontend
+      ```
+    
+    - Start the frontend server:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+      ```bash
+      npm run dev
+      ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Run the Backend**
+
+    - Open a new terminal and navigate to the backend directory:
+    
+      ```bash
+      cd backend
+      ```
+    
+    - Start the backend server:
+
+      ```bash
+      npm run dev
+      ```
+
+### Access the Application
+
+Once both servers are running, open your browser and go to the specified local address (usually `http://localhost:3000` for frontend) to access the PlaySpace app.
+
+---
+
+Enjoy exploring, playing, and earning on PlaySpace!
