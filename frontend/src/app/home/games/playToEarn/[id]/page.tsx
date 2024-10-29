@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { getGameData } from "@/lib/reducers/game_data_slice"
 import { Game } from "@/components/Dashboard/GameGrid"
+import { connectWallet } from "@/lib/reducers/integrate_wallet_slice"
+import { getUserData } from "@/lib/reducers/user_data_slice"
+import axios from "axios"
 
 export default function GamePage() {
   const params = useParams()
@@ -15,9 +18,22 @@ export default function GamePage() {
   const [isMuted, setIsMuted] = useState(false)
   const games = useAppSelector(state => state.games)
   const game: Game | undefined = games.games?.find((game: Game) => game.gameId === params.id)
-  console.log('game',game)
+  console.log('game', game)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const dispatch = useAppDispatch();
+
+  const wallet = useAppSelector(state => state.wallet);
+  const user = useAppSelector(state => state.user);
+
+  useEffect(() => {
+    dispatch(connectWallet())
+  }, [])
+
+  useEffect(() => {
+    if (wallet.signer) {
+      dispatch(getUserData(wallet.signer));
+    }
+  }, [wallet])
 
   useEffect(() => {
     dispatch(getGameData())
@@ -26,22 +42,44 @@ export default function GamePage() {
   useEffect(() => {
     const startTime = new Date().toISOString();
     sessionStorage.setItem('startTime', startTime);
-  
+
     return () => {
       try {
         const endTime = new Date().toISOString();
         const savedStartTime = sessionStorage.getItem('startTime');
-  
+
         if (savedStartTime) {
           const duration = (new Date(endTime).getTime() - new Date(savedStartTime).getTime()) / 1000;
           sessionStorage.setItem('duration', duration.toString());
           sessionStorage.removeItem('startTime');
+          getRewards(duration);
         }
       } catch (error) {
         console.error('Failed to calculate or store duration:', error);
       }
     };
   }, []);
+
+
+  const getRewards = async (duration: number) => {
+    try {
+      let resultData = {
+        reward: 200,
+        game: (game as any)?._id,
+        player: user?.user?._id,
+        result: "TIME BASED",
+        timePassed: duration,
+        gambleAmount: 0
+      };
+
+      console.log(resultData);
+
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/user/store/rewards`, resultData);
+      console.log(response.data);
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {

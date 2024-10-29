@@ -1,7 +1,13 @@
 'use client';
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Wheel } from "react-custom-roulette";
 import "./SpinningBoard.css";
+import { approveTokens, transferFromTokens } from "@/lib/utils";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { connectWallet } from "@/lib/reducers/integrate_wallet_slice";
+import { getUserData } from "@/lib/reducers/user_data_slice";
+import { adminClient } from "@/admin/signer";
+import axios from "axios";
 
 const RouletteGame = () => {
   const levels = {
@@ -63,6 +69,20 @@ const RouletteGame = () => {
   const [prizeNumber, setPrizeNumber] = useState(0);
   const [result, setResult] = useState<string | null>(null);
 
+  const wallet = useAppSelector(state => state.wallet);
+  const user = useAppSelector(state => state.user);
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    dispatch(connectWallet())
+  }, [])
+
+  useEffect(() => {
+    if (wallet.signer) {
+      dispatch(getUserData(wallet.signer));
+    }
+  }, [wallet])
+
   const handleLevelChange = (level: string) => {
     setSelectedLevel(level);
     setSelectedOption("");
@@ -73,18 +93,20 @@ const RouletteGame = () => {
     setSelectedOption(e.target.value);
   };
 
-  const handleSpinClick = () => {
+  const handleSpinClick = async () => {
     if (!selectedOption) {
       alert("Please select an option before spinning.");
       return;
     }
+
+    await approveTokens(10, wallet);
     const levelData = levels[selectedLevel as keyof typeof levels];
     const newPrizeNumber = Math.floor(Math.random() * levelData.length);
     setPrizeNumber(newPrizeNumber);
     setMustSpin(true);
   };
 
-  const handleStopSpinning = () => {
+  const handleStopSpinning = async () => {
     setMustSpin(false);
     const winningOption = levels[selectedLevel as keyof typeof levels][prizeNumber].option;
     const isWin = winningOption === selectedOption;
@@ -92,6 +114,30 @@ const RouletteGame = () => {
       isWin ? `You Won! - ${winningOption}` : `You Lost! - ${winningOption}`
     );
     playAudio(isWin);
+    let resultData: any;
+
+    if (isWin === true) {
+      resultData = {
+        reward: 200,
+        game: "671f4d500a719482329b99ee",
+        player: user?.user?._id,
+        result: "WIN",
+        timePassed: 0,
+        gambleAmount: 10
+      };
+    } else {
+      await transferFromTokens(10, wallet, adminClient);
+      resultData = {
+        reward: 0,
+        game: "671f4d500a719482329b99ee",
+        player: user?.user?._id,
+        result: "LOSS",
+        timePassed: 0,
+        gambleAmount: 10
+      };
+    }
+    const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/user/store/rewards`, resultData);
+    console.log(response.data);
   };
 
   const playAudio = (isWin: boolean) => {
@@ -104,7 +150,7 @@ const RouletteGame = () => {
   return (
     <div className="roulette-game min-h-screen bg-gradient-to-r from-gray-800 via-gray-900 to-black flex flex-col items-center justify-center p-4">
       <h2 className="text-4xl font-bold text-yellow-400 mb-6">Try Your Luck!</h2>
-      
+
       <div className="flex space-x-4 mb-6">
         <button
           onClick={() => handleLevelChange("easy")}
@@ -171,7 +217,7 @@ const RouletteGame = () => {
             "#871f7f",
           ]}
         />
-         <button
+        <button
           className="roulette-button"
           onClick={handleSpinClick}
           disabled={mustSpin}

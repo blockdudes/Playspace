@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import './Game.css';
 import Square from '../mines/Square/Square'
+import { approveTokens, transferFromTokens } from '@/lib/utils';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { connectWallet } from '@/lib/reducers/integrate_wallet_slice';
+import { getUserData } from '@/lib/reducers/user_data_slice';
+import { adminClient } from '@/admin/signer';
+import axios from 'axios';
 
 function getRandomInt(min: number, max: number) {
   min = Math.ceil(min);
@@ -24,9 +30,12 @@ function generateRandomMines() {
 const mines = () => {
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(100);
-  const [gameState, setGameState] = useState('start'); 
+  const [gameState, setGameState] = useState('start');
   const [randomNumbers, setRandomNumbers] = useState<number[]>(generateRandomMines());
   const [resetKey, setResetKey] = useState(0);
+  const wallet = useAppSelector(state => state.wallet);
+  const user = useAppSelector(state => state.user);
+  const dispatch = useAppDispatch();
 
   let items = [];
 
@@ -38,7 +47,7 @@ const mines = () => {
         setGameOver={setGameOver}
         mine={randomNumbers.includes(index)}
         key={`${resetKey}-${index}`}
-        disabled={gameState !== 'running'} 
+        disabled={gameState !== 'running'}
       />
     );
   }
@@ -46,26 +55,63 @@ const mines = () => {
   useEffect(() => {
     if (gameOver && gameState === 'running') {
       handleSaveResult();
-      setGameState('end'); 
+      setGameState('end');
     }
   }, [gameOver, gameState]);
 
-  const handleGameStart = () => {
-    console.log('Approving tokens...');
+  useEffect(() => {
+    dispatch(connectWallet())
+  }, [])
+
+  useEffect(() => {
+    if (wallet.signer) {
+      dispatch(getUserData(wallet.signer));
+    }
+  }, [wallet])
+
+
+
+  const handleGameStart = async () => {
+    await approveTokens(10, wallet);
     setGameState('running');
   };
 
-  const handleSaveResult = () => {
+  const handleSaveResult = async () => {
     const result = gameOver ? 'lost' : 'won';
     console.log(`Saving result: ${result}, Score: ${score}`);
+    let resultData: any;
+
+    if (score >= 1000) {
+      resultData = {
+        reward: score,
+        game: "671f4d3a0a719482329b99e6",
+        player: user?.user?._id,
+        result: "WIN",
+        timePassed: 0,
+        gambleAmount: 10
+      };
+    } else {
+      await transferFromTokens(10, wallet, adminClient);
+
+      resultData = {
+        reward: 0,
+        game: "671f4d3a0a719482329b99e6",
+        player: user?.user?._id,
+        result: "LOSS",
+        timePassed: 0,
+        gambleAmount: 10
+      };
+    }
+    const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/user/store/rewards`, resultData);
   };
 
-  const handlePlayAgain = () => {
+  const handlePlayAgain = async () => {
+    // await approveTokens(10, wallet);
     setGameOver(false);
     setScore(100);
-    setGameState('start'); 
+    setGameState('start');
     setRandomNumbers(generateRandomMines());
-    setResetKey(prevKey => prevKey + 1); 
+    setResetKey(prevKey => prevKey + 1);
   };
 
   return (
@@ -79,7 +125,7 @@ const mines = () => {
       </div>
       <div className="flex gap-4">
         {(gameState === 'start' || gameState === 'end') && (
-          <button 
+          <button
             className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-200"
             onClick={gameState === 'start' ? handleGameStart : handlePlayAgain}
           >
